@@ -15,6 +15,12 @@ dependencies {
     implementation(project(":staffprofiles-common"))
 }
 
+runPaper {
+    folia {
+        registerTask()
+    }
+}
+
 tasks {
     compileJava {
         options.release = 21
