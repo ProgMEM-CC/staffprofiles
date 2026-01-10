@@ -54,6 +54,10 @@ Most well-made plugins, including LuckPerms, can handle this properly, as this s
 when two players swap usernames.
 If you're still concerned or annoyed by the warning, you can configure a username transformer.
 
+Update:
+LuckPerms [now supports](https://github.com/LuckPerms/LuckPerms/pull/4194) disabling this notice by starting your server using the `luckperms.suppress-uuid-mismatch-warning`
+system property.
+
 ## Secure profiles
 
 When having secure profiles enabled, sending chat messages when a staff profile is active will not work.
