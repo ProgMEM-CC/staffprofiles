@@ -18,7 +18,8 @@
 
 package de.mcmdev.staffprofiles;
 
-import de.mcmdev.staffprofiles.permission.LuckPermsPermissionProvider;
+import dev.jorel.commandapi.CommandAPI;
+import dev.jorel.commandapi.CommandAPIPaperConfig;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.slf4j.Logger;
@@ -29,13 +30,26 @@ public class StaffprofilesPaper extends JavaPlugin {
     private static final Logger LOGGER = LoggerFactory.getLogger(StaffprofilesPaper.class);
 
     @Override
+    public void onLoad() {
+        CommandAPI.onLoad(new CommandAPIPaperConfig(this));
+    }
+
+    @Override
     public void onEnable() {
+        CommandAPI.onEnable();
+
         try {
-            Staffprofiles staffprofiles = Staffprofiles.create(getDataPath(), new LuckPermsPermissionProvider());
+            Staffprofiles staffprofiles = Staffprofiles.create(getDataPath());
+            new SprofileCommand(this, staffprofiles).register();
             Bukkit.getPluginManager().registerEvents(new LoginListener(staffprofiles), this);
         } catch (Exception e) {
             LOGGER.error("An error occurred while enabling staffprofiles plugin", e);
             Bukkit.getPluginManager().disablePlugin(this);
         }
+    }
+
+    @Override
+    public void onDisable() {
+        CommandAPI.onDisable();
     }
 }

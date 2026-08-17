@@ -18,9 +18,13 @@
 
 package de.mcmdev.staffprofiles;
 
-import java.util.regex.Pattern;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-record ConfigurationData(Pattern hostRegex, String permission, StringTransformer uuidTransformer,
-                         StringTransformer usernameTransformer) {
+record ConfigurationData(String permission, Map<String, String> profiles) {
+
+    static ConfigurationData defaults() {
+        return new ConfigurationData("staffprofile", new LinkedHashMap<>());
+    }
 
 }

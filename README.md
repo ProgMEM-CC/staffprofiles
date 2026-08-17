@@ -1,23 +1,22 @@
 # staffprofiles
 
-staffprofiles is a Minecraft plugin that assigns staff members a different game profile if
-they are joining using a specific hostname.
+staffprofiles is a Minecraft plugin that lets staff members disguise themselves as a different
+game profile (username and UUID) while playing, and switch back at any time.
 It's an evolution of my proof-of-concept plugin [hostprofiles](https://github.com/MCMDEV/hostprofiles)
 into a more practical, specialized solution for staff management.
 
 ## Non-technical example
 
-The plugin essentially does the following when a player is logging in:
+The plugin essentially does the following when a player uses the `/sprofile` command:
 
-1. It checks if the address that the player is using to connect matches a configured staff address
-2. If the address matches, it verifies that the player has a configured permission
-3. If both are true, the player UUID and username are changed, causing the server to treat the player as if
-   they were on a separate Minecraft account.
+1. An admin adds a profile (a username + UUID pair) to the plugin's config using `/sprofile add`
+2. A staff member runs `/sprofile login <username>` to start using that profile
+3. The player is disconnected and reconnects, and the server treats them as the profile's account
+4. Running `/sprofile off` removes the disguise so the player rejoins as their real account
 
 An example:
-If your server address is `example.org`, you could configure `staff.example.org` (the host) as a staff host
-so that all players connecting using that host, if they have the permission `staffprofile`, are
-connected using what is treated by the server like a separate account.
+An admin runs `/sprofile add ProgMEM 00000000-0000-0000-0000-000000000000` to store a profile.
+A staff member then runs `/sprofile login ProgMEM`, gets disconnected, and reconnects as `ProgMEM`.
 
 ## Configuration
 
@@ -26,15 +25,30 @@ means that the plugin configuration file cannot contain any comments.
 
 Please see the reference below to learn about available configuration options:
 
-**hostRegex**: A regular expression pattern that determines if a hostname should be treated as a staff hostname by matching
-against the entire address \
-**permission**: The permission the player must have to be allowed to join using a staff hostname \
-**uuidTransformer**: Specifies the transformation of player UUIDs into staff profile UUIDs using a regex pattern. The format
-is "pattern/replacement" where a pattern matches parts of the original UUID and replacement defines how to construct the
-new UUID. \
-**usernameTransformer**: Specifies the transformation of player username into staff profile username using a regex pattern.
-The format is "pattern/replacement" where a pattern matches parts of the original username and replacement defines
-how to construct the new username.
+**permission**: The permission a player needs to use the `/sprofile` command \
+**profiles**: A map of profile names to UUIDs. These are the profiles staff members can log in as.
+
+Profiles can also be managed at runtime with the `/sprofile` command, which writes back to this file.
+Active disguises are stored in a separate `disguises.json` file so they survive server restarts.
+
+## Commands
+
+`add`, `remove`, `login` and `list` require the configured `permission` (default `staffprofile`).
+`off` and `status` are available to everyone, so any player can always check and remove their own disguise.
+
+| Command | Description |
+| --- | --- |
+| `/sprofile add <username> [uuid]` | Adds a profile. If no UUID is given, the Mojang API is queried for the player's UUID; if the player doesn't exist, a random UUID is generated. |
+| `/sprofile remove <username>` | Removes a profile. |
+| `/sprofile login <username>` | Starts using the given profile. You are disconnected and reconnect as that profile. |
+| `/sprofile off` | Stops using your current disguise. You are disconnected and reconnect as your real profile. Available to everyone. |
+| `/sprofile status` | Shows whether you are currently disguised and, if so, as which profile. Available to everyone. |
+| `/sprofile list` | Lists all configured profiles. |
+
+Tab completion is provided for the subcommands and their arguments (online players for `add`, configured profiles for `remove` and `login`).
+
+When logging in as a profile, the plugin fetches that profile's real skin from Mojang. Profiles that don't exist
+on Mojang (e.g. ones created with a randomly generated UUID) will use the default skin.
 
 ## Additional notes
 
@@ -52,9 +66,7 @@ These warnings can be safely ignored if you have a secure setup. As the warning 
 noticed that data for the given name is already available under a different username, which is precisely what this plugin does.
 Most well-made plugins, including LuckPerms, can handle this properly, as this scenario can actually occur naturally
 when two players swap usernames.
-If you're still concerned or annoyed by the warning, you can configure a username transformer.
 
-Update:
 LuckPerms [now supports](https://github.com/LuckPerms/LuckPerms/pull/4194) disabling this notice by starting your server using the `luckperms.suppress-uuid-mismatch-warning`
 system property.
 

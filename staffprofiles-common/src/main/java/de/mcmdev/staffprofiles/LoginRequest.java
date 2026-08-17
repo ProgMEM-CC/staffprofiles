@@ -20,5 +20,5 @@ package de.mcmdev.staffprofiles;
 
 import java.util.UUID;
 
-record LoginRequest(String hostname, String username, UUID uuid) {
+record LoginRequest(String username, UUID uuid) {
 }

@@ -48,7 +48,6 @@ final class LoginListener implements Listener {
         }
 
         LoginRequest loginRequest = new LoginRequest(
-                event.getHostname(),
                 playerProfile.getName(),
                 playerProfile.getId()
         );
@@ -61,9 +60,13 @@ final class LoginListener implements Listener {
                 event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, Component.text(loginResponse.reason()));
             }
             case ALLOW -> {
-                playerProfile.complete();
                 PlayerProfile newProfile = Bukkit.createProfile(loginResponse.uuid(), loginResponse.username());
-                newProfile.setProperties(playerProfile.getProperties());
+                // Fetch the profile's real skin from Mojang rather than reusing the player's own skin.
+                try {
+                    newProfile.complete();
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to fetch profile data for {}, using default skin", loginResponse.username(), e);
+                }
                 event.setPlayerProfile(newProfile);
             }
         }

@@ -13,6 +13,7 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
 
     implementation(project(":staffprofiles-common"))
+    implementation("dev.jorel:commandapi-paper-shade:11.2.0")
 }
 
 runPaper {
@@ -30,6 +31,7 @@ tasks {
     }
     shadowJar {
         archiveClassifier.set("")
+        relocate("dev.jorel.commandapi", "de.mcmdev.staffprofiles.commandapi")
     }
     build {
         dependsOn(shadowJar)

@@ -16,15 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package de.mcmdev.staffprofiles.permission;
-
-import org.jetbrains.annotations.Blocking;
+package de.mcmdev.staffprofiles;
 
 import java.util.UUID;
 
-public interface PermissionProvider {
-
-    @Blocking
-    boolean hasPermission(UUID uuid, String permission);
+record ProfileEntry(String name, UUID uuid) {
 
 }

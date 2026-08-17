@@ -27,7 +27,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Pattern;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 final class ConfigurationLoader {
 
@@ -38,7 +39,16 @@ final class ConfigurationLoader {
         ensureConfigExists(configPath);
 
         try (BufferedReader reader = Files.newBufferedReader(configPath, StandardCharsets.UTF_8)) {
-            return getGson().fromJson(reader, ConfigurationData.class);
+            ConfigurationData configuration = getGson().fromJson(reader, ConfigurationData.class);
+            if (configuration == null) {
+                return ConfigurationData.defaults();
+            }
+
+            String permission = configuration.permission() != null ? configuration.permission() : "staffprofile";
+            Map<String, String> profiles = configuration.profiles() != null
+                    ? configuration.profiles()
+                    : new LinkedHashMap<>();
+            return new ConfigurationData(permission, profiles);
         }
     }
 
@@ -75,9 +85,6 @@ final class ConfigurationLoader {
     private Gson getGson() {
         return new GsonBuilder()
                 .setLenient()
-                .registerTypeAdapter(Pattern.class, new PatternDeserializer())
-                .registerTypeAdapter(StringTransformer.class, new StringTransformer.Adapter())
-                .setPrettyPrinting()
                 .create();
     }
 

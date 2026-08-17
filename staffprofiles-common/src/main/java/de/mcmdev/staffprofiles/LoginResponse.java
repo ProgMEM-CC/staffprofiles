@@ -24,7 +24,6 @@ import java.util.UUID;
 
 final class LoginResponse {
 
-    private static final String DENY_REASON = "You are not allowed to join using this hostname.";
     private static final String FAIL_REASON = "An error occurred during login. Please contact the server administrator.";
 
     private final Type type;
@@ -48,10 +47,6 @@ final class LoginResponse {
 
     static LoginResponse allow(UUID newUUID, String newUsername) {
         return new LoginResponse(Type.ALLOW, newUUID, newUsername, null);
-    }
-
-    static LoginResponse deny() {
-        return new LoginResponse(Type.DENY, null, null, DENY_REASON);
     }
 
     static LoginResponse fail() {

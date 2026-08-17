@@ -16,6 +16,7 @@ dependencies {
     annotationProcessor("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
 
     implementation(project(":staffprofiles-common"))
+    implementation("dev.jorel:commandapi-velocity-shade:11.2.0")
 }
 
 tasks {
@@ -27,6 +28,7 @@ tasks {
     }
     shadowJar {
         archiveClassifier.set("")
+        relocate("dev.jorel.commandapi", "de.mcmdev.staffprofiles.commandapi")
     }
     build {
         dependsOn(shadowJar)

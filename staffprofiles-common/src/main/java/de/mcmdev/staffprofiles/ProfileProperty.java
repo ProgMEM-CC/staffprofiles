@@ -18,21 +18,8 @@
 
 package de.mcmdev.staffprofiles;
 
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
+import org.jetbrains.annotations.Nullable;
 
-import java.lang.reflect.Type;
-import java.util.regex.Pattern;
+record ProfileProperty(String name, String value, @Nullable String signature) {
 
-final class PatternDeserializer implements JsonDeserializer<Pattern> {
-    @Override
-    public Pattern deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-        try {
-            return Pattern.compile(json.getAsString());
-        } catch (Exception e) {
-            throw new JsonParseException(e);
-        }
-    }
 }

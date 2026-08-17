@@ -23,27 +23,25 @@ import com.velocitypowered.api.event.*;
 import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.player.GameProfileRequestEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
-import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.util.GameProfile;
-import de.mcmdev.staffprofiles.permission.LuckPermsPermissionProvider;
+import dev.jorel.commandapi.CommandAPI;
+import dev.jorel.commandapi.CommandAPIVelocityConfig;
 import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.util.Optional;
+import java.util.List;
 
 @Plugin(
         id = "staffprofiles",
         name = "staffprofiles",
         authors = "MCMDEV",
-        dependencies = {@Dependency(id = "luckperms")},
-        description = "Assigns staff members a different game profile if\n" +
-                "they are joining using a specific hostname.",
+        description = "Assigns staff members a different game profile.",
         url = "https://github.com/MCMDEV/staffprofiles",
         version = PluginConstants.VERSION
 )
@@ -60,31 +58,32 @@ public class StaffprofilesVelocity {
     public StaffprofilesVelocity(ProxyServer proxyServer, @DataDirectory Path dataDirectory) {
         this.proxyServer = proxyServer;
         this.dataDirectory = dataDirectory;
+        CommandAPI.onLoad(new CommandAPIVelocityConfig(proxyServer, this));
     }
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
+        CommandAPI.onEnable();
+
         try {
-            staffprofiles = Staffprofiles.create(dataDirectory, new LuckPermsPermissionProvider());
+            staffprofiles = Staffprofiles.create(dataDirectory);
         } catch (Exception e) {
             LOGGER.error("An error occurred while enabling staffprofiles plugin", e);
             return;
         }
 
+        new SprofileCommand(proxyServer, this, staffprofiles).register();
         proxyServer.getEventManager().register(this, PreLoginEvent.class, (AwaitingEventExecutor<PreLoginEvent>) this::onLogin);
         proxyServer.getEventManager().register(this, GameProfileRequestEvent.class, (AwaitingEventExecutor<GameProfileRequestEvent>) this::onGameProfileRequest);
     }
 
     @Nullable
     private EventTask onLogin(PreLoginEvent event) {
-        Optional<String> rawVirtualHost = event.getConnection().getRawVirtualHost();
-        if (rawVirtualHost.isEmpty()) {
+        if (event.getUniqueId() == null) {
             return null;
         }
-        String hostname = rawVirtualHost.get();
         return EventTask.async(() -> {
-            if(event.getUniqueId() == null) return;
-            LoginRequest loginRequest = new LoginRequest(hostname, event.getUsername(), event.getUniqueId());
+            LoginRequest loginRequest = new LoginRequest(event.getUsername(), event.getUniqueId());
             LoginResponse loginResponse = staffprofiles.login(loginRequest);
 
             if (loginResponse.type() != LoginResponse.Type.DENY) return;
@@ -95,18 +94,29 @@ public class StaffprofilesVelocity {
 
     @Nullable
     private EventTask onGameProfileRequest(GameProfileRequestEvent event) {
-        Optional<String> rawVirtualHost = event.getConnection().getRawVirtualHost();
-        if (rawVirtualHost.isEmpty()) {
-            return null;
-        }
-        String hostname = rawVirtualHost.get();
         return EventTask.async(() -> {
-            LoginRequest loginRequest = new LoginRequest(hostname, event.getOriginalProfile().getName(), event.getOriginalProfile().getId());
+            GameProfile originalProfile = event.getOriginalProfile();
+            LoginRequest loginRequest = new LoginRequest(originalProfile.getName(), originalProfile.getId());
             LoginResponse loginResponse = staffprofiles.login(loginRequest);
 
             if (loginResponse.type() != LoginResponse.Type.ALLOW) return;
 
-            event.setGameProfile(new GameProfile(loginResponse.uuid(), loginResponse.username(), event.getOriginalProfile().getProperties()));
+            // Fetch the profile's real skin from Mojang rather than reusing the player's own skin.
+            List<GameProfile.Property> properties = staffprofiles.fetchProperties(loginResponse.uuid())
+                    .map(profileProperties -> profileProperties.stream()
+                            .map(property -> new GameProfile.Property(
+                                    property.name(),
+                                    property.value(),
+                                    property.signature()
+                            ))
+                            .toList())
+                    .orElseGet(() -> List.copyOf(originalProfile.getProperties()));
+
+            event.setGameProfile(new GameProfile(
+                    loginResponse.uuid(),
+                    loginResponse.username(),
+                    properties
+            ));
         });
     }
 
