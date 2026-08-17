@@ -80,18 +80,52 @@ final class SprofileCommand {
                                 return;
                             }
 
-                            staffprofiles.setDisguiseFor(player.getUniqueId(), profile.get().name());
+                            staffprofiles.setDisguiseFor(player.getUniqueId(), player.getName(), profile.get().name());
                             player.kick(Component.text("Reconnecting as " + profile.get().name() + "..."));
                         }))
                 .withSubcommand(new CommandAPICommand("off")
-                        .executesPlayer((player, args) -> {
-                            boolean removed = staffprofiles.clearDisguiseFor(player.getUniqueId());
-                            if (!removed) {
-                                player.sendMessage(Component.text("You are not currently disguised."));
+                        .withOptionalArguments(new StringArgument("target")
+                                .replaceSuggestions(ArgumentSuggestions.stringCollection(info -> onlinePlayerNames())))
+                        .executes((sender, args) -> {
+                            Optional<String> targetName = args.getOptional("target").map(String.class::cast);
+
+                            if (targetName.isEmpty()) {
+                                // Remove your own disguise. Available to everyone.
+                                if (!(sender instanceof Player player)) {
+                                    sender.sendMessage(Component.text("You must specify a target."));
+                                    return;
+                                }
+
+                                boolean removed = staffprofiles.clearDisguiseFor(player.getUniqueId());
+                                if (!removed) {
+                                    player.sendMessage(Component.text("You are not currently disguised."));
+                                    return;
+                                }
+
+                                player.kick(Component.text("Reconnecting with your real profile..."));
                                 return;
                             }
 
-                            player.kick(Component.text("Reconnecting with your real profile..."));
+                            // Force another player to remove their disguise. Restricted to operators.
+                            if (!sender.isOp()) {
+                                sender.sendMessage(Component.text("You need to be an operator to force another player off."));
+                                return;
+                            }
+
+                            Player target = Bukkit.getPlayerExact(targetName.get());
+                            if (target == null) {
+                                sender.sendMessage(Component.text("Player " + targetName.get() + " is not online."));
+                                return;
+                            }
+
+                            boolean removed = staffprofiles.clearDisguiseFor(target.getUniqueId());
+                            if (!removed) {
+                                sender.sendMessage(Component.text(target.getName() + " is not currently disguised."));
+                                return;
+                            }
+
+                            sender.sendMessage(Component.text(target.getName() + " is no longer disguised and will reconnect with their real profile."));
+                            target.kick(Component.text("You have been disconnected by an operator. Reconnecting with your real profile..."));
                         }))
                 .withSubcommand(new CommandAPICommand("status")
                         .executesPlayer((player, args) -> {
@@ -109,6 +143,29 @@ final class SprofileCommand {
                             } else {
                                 player.sendMessage(Component.text("You are disguised as " + profileName + " (profile no longer exists)."));
                             }
+                        }))
+                .withSubcommand(new CommandAPICommand("info")
+                        .withPermission(staffprofiles.permission())
+                        .withArguments(new StringArgument("target")
+                                .replaceSuggestions(ArgumentSuggestions.stringCollection(info -> onlinePlayerNames())))
+                        .executes((sender, args) -> {
+                            String targetName = (String) args.get("target");
+                            Player target = Bukkit.getPlayerExact(targetName);
+                            if (target == null) {
+                                sender.sendMessage(Component.text("Player " + targetName + " is not online."));
+                                return;
+                            }
+
+                            Optional<DisguiseInfo> disguise = staffprofiles.disguiseInfoFor(target.getUniqueId());
+                            if (disguise.isEmpty()) {
+                                sender.sendMessage(Component.text(target.getName() + " is not currently disguised."));
+                                return;
+                            }
+
+                            DisguiseInfo info = disguise.get();
+                            String realName = info.realName() != null ? info.realName() : info.realUuid().toString();
+                            sender.sendMessage(Component.text(target.getName() + " is disguised as " + info.profileName()
+                                    + ". Their real name is " + realName + "."));
                         }))
                 .withSubcommand(new CommandAPICommand("list")
                         .withPermission(staffprofiles.permission())

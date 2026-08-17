@@ -33,8 +33,9 @@ Active disguises are stored in a separate `disguises.json` file so they survive 
 
 ## Commands
 
-`add`, `remove`, `login` and `list` require the configured `permission` (default `staffprofile`).
+`add`, `remove`, `login`, `info` and `list` require the configured `permission` (default `staffprofile`).
 `off` and `status` are available to everyone, so any player can always check and remove their own disguise.
+Forcing another player to stop disguising with `off <target>` is restricted to operators.
 
 | Command | Description |
 | --- | --- |
@@ -42,10 +43,12 @@ Active disguises are stored in a separate `disguises.json` file so they survive 
 | `/sprofile remove <username>` | Removes a profile. |
 | `/sprofile login <username>` | Starts using the given profile. You are disconnected and reconnect as that profile. |
 | `/sprofile off` | Stops using your current disguise. You are disconnected and reconnect as your real profile. Available to everyone. |
+| `/sprofile off <target>` | Forces another player to stop using their disguise. They are disconnected and reconnect as their real profile. Operators only. |
 | `/sprofile status` | Shows whether you are currently disguised and, if so, as which profile. Available to everyone. |
+| `/sprofile info <target>` | Shows whether a player is currently disguised and, if so, their real name. |
 | `/sprofile list` | Lists all configured profiles. |
 
-Tab completion is provided for the subcommands and their arguments (online players for `add`, configured profiles for `remove` and `login`).
+Tab completion is provided for the subcommands and their arguments (online players for `add`, `off`, and `info`, configured profiles for `remove` and `login`).
 
 When logging in as a profile, the plugin fetches that profile's real skin from Mojang. Profiles that don't exist
 on Mojang (e.g. ones created with a randomly generated UUID) will use the default skin.

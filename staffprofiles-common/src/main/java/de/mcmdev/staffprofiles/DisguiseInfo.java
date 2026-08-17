@@ -18,6 +18,8 @@
 
 package de.mcmdev.staffprofiles;
 
-final class PluginConstants {
-    public static final String VERSION = "{{ version }}";
+import java.util.UUID;
+
+record DisguiseInfo(UUID realUuid, String realName, String profileName) {
+
 }

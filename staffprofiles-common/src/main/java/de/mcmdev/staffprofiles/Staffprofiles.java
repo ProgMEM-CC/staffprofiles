@@ -20,6 +20,7 @@ package de.mcmdev.staffprofiles;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.slf4j.Logger;
@@ -49,10 +50,10 @@ final class Staffprofiles {
 
     private final String permission;
     private final Map<String, UUID> profiles = new ConcurrentHashMap<>();
-    private final Map<UUID, String> disguises = new ConcurrentHashMap<>();
+    private final Map<UUID, Disguise> disguises = new ConcurrentHashMap<>();
 
     private Staffprofiles(Path dataDirectory, String permission, Map<String, UUID> profiles,
-                          Map<UUID, String> disguises) {
+                          Map<UUID, Disguise> disguises) {
         this.dataDirectory = dataDirectory;
         this.permission = permission;
         this.profiles.putAll(profiles);
@@ -62,18 +63,18 @@ final class Staffprofiles {
     public static Staffprofiles create(Path dataDirectory) throws Exception {
         ConfigurationData configuration = new ConfigurationLoader().load(dataDirectory);
         Map<String, UUID> profiles = parseProfiles(configuration.profiles());
-        Map<UUID, String> disguises = loadDisguises(dataDirectory.resolve(DISGUISES_FILE_NAME));
+        Map<UUID, Disguise> disguises = loadDisguises(dataDirectory.resolve(DISGUISES_FILE_NAME));
         return new Staffprofiles(dataDirectory, configuration.permission(), profiles, disguises);
     }
 
     LoginResponse login(LoginRequest loginRequest) {
         try {
-            String profileName = disguises.get(loginRequest.uuid());
-            if (profileName == null) {
+            Disguise disguise = disguises.get(loginRequest.uuid());
+            if (disguise == null) {
                 return LoginResponse.ignore();
             }
 
-            Optional<ProfileEntry> profile = findProfile(profileName);
+            Optional<ProfileEntry> profile = findProfile(disguise.profileName());
             if (profile.isEmpty()) {
                 // The disguise target no longer exists, stop disguising this player.
                 clearDisguise(loginRequest.uuid());
@@ -140,12 +141,26 @@ final class Staffprofiles {
      * UUID or their current (possibly disguised) UUID.
      */
     Optional<String> currentDisguiseFor(UUID currentUuid) {
-        return findRealUuid(currentUuid).map(disguises::get);
+        return findRealUuid(currentUuid).map(realUuid -> disguises.get(realUuid).profileName());
     }
 
-    synchronized void setDisguiseFor(UUID currentUuid, String profileName) {
+    /**
+     * Returns the active disguise for a player, including the player's real UUID and name alongside
+     * the disguise profile name.
+     */
+    Optional<DisguiseInfo> disguiseInfoFor(UUID currentUuid) {
+        return findRealUuid(currentUuid)
+                .map(realUuid -> {
+                    Disguise disguise = disguises.get(realUuid);
+                    return new DisguiseInfo(realUuid, disguise.realName(), disguise.profileName());
+                });
+    }
+
+    synchronized void setDisguiseFor(UUID currentUuid, String realName, String profileName) {
         UUID realUuid = findRealUuid(currentUuid).orElse(currentUuid);
-        disguises.put(realUuid, profileName);
+        // If the player is already disguised, their current name is a disguise name; keep the real name we already know.
+        String resolvedRealName = disguises.containsKey(realUuid) ? disguises.get(realUuid).realName() : realName;
+        disguises.put(realUuid, new Disguise(resolvedRealName, profileName));
         saveDisguises();
     }
 
@@ -169,7 +184,7 @@ final class Staffprofiles {
      */
     private Optional<UUID> findRealUuid(UUID currentUuid) {
         return disguises.entrySet().stream()
-                .filter(entry -> findProfile(entry.getValue())
+                .filter(entry -> findProfile(entry.getValue().profileName())
                         .map(ProfileEntry::uuid)
                         .map(currentUuid::equals)
                         .orElse(false))
@@ -189,17 +204,28 @@ final class Staffprofiles {
         return result;
     }
 
-    private static Map<UUID, String> loadDisguises(Path path) {
+    private static Map<UUID, Disguise> loadDisguises(Path path) {
         if (!Files.exists(path)) {
             return new HashMap<>();
         }
 
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             JsonObject json = new JsonParser().parse(reader).getAsJsonObject();
-            Map<UUID, String> result = new HashMap<>();
+            Map<UUID, Disguise> result = new HashMap<>();
             json.entrySet().forEach(entry -> {
                 try {
-                    result.put(UUID.fromString(entry.getKey()), entry.getValue().getAsString());
+                    UUID uuid = UUID.fromString(entry.getKey());
+                    JsonElement value = entry.getValue();
+                    if (value.isJsonObject()) {
+                        // Current format: realUuid -> { "realName": ..., "profileName": ... }
+                        JsonObject disguiseJson = value.getAsJsonObject();
+                        String realName = disguiseJson.has("realName") ? disguiseJson.get("realName").getAsString() : null;
+                        String profileName = disguiseJson.get("profileName").getAsString();
+                        result.put(uuid, new Disguise(realName, profileName));
+                    } else {
+                        // Legacy format: realUuid -> profileName
+                        result.put(uuid, new Disguise(null, value.getAsString()));
+                    }
                 } catch (IllegalArgumentException e) {
                     LOGGER.warn("Invalid UUID '{}' in disguises file, ignoring", entry.getKey());
                 }
@@ -224,7 +250,12 @@ final class Staffprofiles {
 
     private void saveDisguises() {
         JsonObject json = new JsonObject();
-        disguises.forEach((uuid, name) -> json.addProperty(uuid.toString(), name));
+        disguises.forEach((uuid, disguise) -> {
+            JsonObject entry = new JsonObject();
+            entry.addProperty("realName", disguise.realName());
+            entry.addProperty("profileName", disguise.profileName());
+            json.add(uuid.toString(), entry);
+        });
         writeJson(dataDirectory.resolve(DISGUISES_FILE_NAME), json);
     }
 
